@@ -88,7 +88,8 @@ def main():
         opt.refine_start = False
         opt.decay_start = False
         optimizer = optim.Adam(estimator.parameters(), lr=opt.lr)
-
+        
+    # 加载数据集
     if opt.dataset == 'ycb':
         dataset = PoseDataset_ycb('train', opt.num_points, True, opt.dataset_root, opt.noise_trans, opt.refine_start)
     elif opt.dataset == 'linemod':
@@ -129,6 +130,7 @@ def main():
 
         for rep in range(opt.repeat_epoch):
             for i, data in enumerate(dataloader, 0):
+                # 深度图点云， 深度图点云索引，切割下的RGB，第一帧点云，类别
                 points, choose, img, target, model_points, idx = data
                 points, choose, img, target, model_points, idx = Variable(points).cuda(), \
                                                                  Variable(choose).cuda(), \

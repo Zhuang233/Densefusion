@@ -85,7 +85,7 @@ class PoseDataset(data.Dataset):
         self.border_list = [-1, 40, 80, 120, 160, 200, 240, 280, 320, 360, 400, 440, 480, 520, 560, 600, 640, 680]
         self.num_pt_mesh_large = 500
         self.num_pt_mesh_small = 500
-        self.symmetry_obj_idx = [7, 8]
+        self.symmetry_obj_idx = [7, 8] # 对称物体
 
     def __getitem__(self, index):
         img = Image.open(self.list_rgb[index])
