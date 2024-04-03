@@ -1,1 +1,2 @@
 experiments/logs/*
+datasets/linemod/__pycache__/*
