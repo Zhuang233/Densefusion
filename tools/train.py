@@ -26,6 +26,14 @@ from lib.network import PoseNet, PoseRefineNet
 from lib.loss import Loss
 from lib.loss_refiner import Loss_refine
 from lib.utils import setup_logger
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+import cProfile
+import pstats
+import io
+
+
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default = 'ycb', help='ycb or linemod')
@@ -63,15 +71,34 @@ def main():
         opt.num_points = 500
         opt.outf = 'trained_models/linemod'
         opt.log_dir = 'experiments/logs/linemod'
-        opt.repeat_epoch = 20
+        opt.repeat_epoch = 1
     else:
         print('Unknown dataset')
         return
 
-    estimator = PoseNet(num_points = opt.num_points, num_obj = opt.num_objects)
+    estimator = PoseNet(num_points = opt.num_points, num_obj = opt.num_objects, sam_num2=500)
     estimator.cuda()
-    refiner = PoseRefineNet(num_points = opt.num_points, num_obj = opt.num_objects)
+    refiner = PoseRefineNet(num_points = opt.num_points, num_obj = opt.num_objects, sam_num2=500)
     refiner.cuda()
+
+    # 计算模型的总参数量
+    total_params = sum(p.numel() for p in estimator.parameters())
+
+    # 计算可训练的参数量
+    trainable_params = sum(p.numel() for p in estimator.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
+
+    # 计算模型的总参数量
+    total_params = sum(p.numel() for p in refiner.parameters())
+
+    # 计算可训练的参数量
+    trainable_params = sum(p.numel() for p in refiner.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
+    
 
     if opt.resume_posenet != '':
         estimator.load_state_dict(torch.load('{0}/{1}'.format(opt.outf, opt.resume_posenet)))
@@ -138,6 +165,7 @@ def main():
                                                                  Variable(target).cuda(), \
                                                                  Variable(model_points).cuda(), \
                                                                  Variable(idx).cuda()
+                pr.enable()  # 开始收集性能数据
                 pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
                 
@@ -151,7 +179,7 @@ def main():
 
                 train_dis_avg += dis.item()
                 train_count += 1
-
+                pr.disable()  # 停止收集性能数据
                 if train_count % opt.batch_size == 0:
                     logger.info('Train time {0} Epoch {1} Batch {2} Frame {3} Avg_dis:{4}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)), epoch, int(train_count / opt.batch_size), train_count, train_dis_avg / opt.batch_size))
                     optimizer.step()
@@ -163,7 +191,7 @@ def main():
                         torch.save(refiner.state_dict(), '{0}/pose_refine_model_current.pth'.format(opt.outf))
                     else:
                         torch.save(estimator.state_dict(), '{0}/pose_model_current.pth'.format(opt.outf))
-
+                return
         print('>>>>>>>>----------epoch {0} train finish---------<<<<<<<<'.format(epoch))
 
 
@@ -236,4 +264,19 @@ def main():
             criterion_refine = Loss_refine(opt.num_points_mesh, opt.sym_list)
 
 if __name__ == '__main__':
+    # main()
+    # 创建一个Profile对象
+    pr = cProfile.Profile()
+
+
+    # 执行你感兴趣的函数或代码段
     main()
+
+    
+
+    # 将收集到的性能数据写入到一个字符串流中，以便于打印输出
+    s = io.StringIO()
+    sortby = 'cumulative'  # 可以根据需要修改排序方式
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())
