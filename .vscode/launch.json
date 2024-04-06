@@ -19,6 +19,22 @@
                 "PYTHONUNBUFFERED": "True"
             },
             "justMyCode": true
+        },
+        {
+            "name": "draw_linemod",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/draw_linemod.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "linemod",
+                "--dataset_root", "./datasets/linemod/Linemod_preprocessed"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "PYTHONUNBUFFERED": "True"
+            },
+            "justMyCode": true
         }
     ]
 }
