@@ -26,6 +26,9 @@ from lib.network import PoseNet, PoseRefineNet
 from lib.loss import Loss
 from lib.loss_refiner import Loss_refine
 from lib.utils import setup_logger
+import cProfile
+import pstats
+import io
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default = 'ycb', help='ycb or linemod')
@@ -72,6 +75,24 @@ def main():
     estimator.cuda()
     refiner = PoseRefineNet(num_points = opt.num_points, num_obj = opt.num_objects)
     refiner.cuda()
+
+    # 计算模型的总参数量
+    total_params = sum(p.numel() for p in estimator.parameters())
+
+    # 计算可训练的参数量
+    trainable_params = sum(p.numel() for p in estimator.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
+
+    # 计算模型的总参数量
+    total_params = sum(p.numel() for p in refiner.parameters())
+
+    # 计算可训练的参数量
+    trainable_params = sum(p.numel() for p in refiner.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
 
     if opt.resume_posenet != '':
         estimator.load_state_dict(torch.load('{0}/{1}'.format(opt.outf, opt.resume_posenet)))
@@ -138,6 +159,7 @@ def main():
                                                                  Variable(target).cuda(), \
                                                                  Variable(model_points).cuda(), \
                                                                  Variable(idx).cuda()
+                pr.enable()  # 开始收集性能数据
                 pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
                 
@@ -157,7 +179,8 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     train_dis_avg = 0
-
+                pr.disable()  # 停止收集性能数据
+                return
                 if train_count != 0 and train_count % 1000 == 0:
                     if opt.refine_start:
                         torch.save(refiner.state_dict(), '{0}/pose_refine_model_current.pth'.format(opt.outf))
@@ -236,4 +259,19 @@ def main():
             criterion_refine = Loss_refine(opt.num_points_mesh, opt.sym_list)
 
 if __name__ == '__main__':
+    # main()
+    # 创建一个Profile对象
+    pr = cProfile.Profile()
+    
+
+    # 执行你感兴趣的函数或代码段
     main()
+
+    
+
+    # 将收集到的性能数据写入到一个字符串流中，以便于打印输出
+    s = io.StringIO()
+    sortby = 'cumulative'  # 可以根据需要修改排序方式
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())
