@@ -31,6 +31,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import cProfile
 import pstats
 import io
+from torch.autograd import profiler
 
 
 
@@ -165,7 +166,7 @@ def main():
                                                                  Variable(target).cuda(), \
                                                                  Variable(model_points).cuda(), \
                                                                  Variable(idx).cuda()
-                pr.enable()  # 开始收集性能数据
+                # pr.enable()  # 开始收集性能数据
                 pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
                 
@@ -175,11 +176,18 @@ def main():
                         dis, new_points, new_target = criterion_refine(pred_r, pred_t, new_target, model_points, idx, new_points)
                         dis.backward()
                 else:
+                    # with profiler.profile(use_cuda=torch.cuda.is_available()) as prof:
                     loss.backward()
+                    # prof.export_chrome_trace("profile_result.json")
+                    # # 将性能分析结果转换为字符串
+                    # prof_string = str(prof)
 
+                    # # 将字符串写入文件
+                    # with open("profile_result.txt", "w") as f:
+                    #     f.write(prof_string)
                 train_dis_avg += dis.item()
                 train_count += 1
-                pr.disable()  # 停止收集性能数据
+                # pr.disable()  # 停止收集性能数据
                 if train_count % opt.batch_size == 0:
                     logger.info('Train time {0} Epoch {1} Batch {2} Frame {3} Avg_dis:{4}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)), epoch, int(train_count / opt.batch_size), train_count, train_dis_avg / opt.batch_size))
                     optimizer.step()
@@ -191,7 +199,7 @@ def main():
                         torch.save(refiner.state_dict(), '{0}/pose_refine_model_current.pth'.format(opt.outf))
                     else:
                         torch.save(estimator.state_dict(), '{0}/pose_model_current.pth'.format(opt.outf))
-                return
+                # return
         print('>>>>>>>>----------epoch {0} train finish---------<<<<<<<<'.format(epoch))
 
 
@@ -266,7 +274,7 @@ def main():
 if __name__ == '__main__':
     # main()
     # 创建一个Profile对象
-    pr = cProfile.Profile()
+    # pr = cProfile.Profile()
 
 
     # 执行你感兴趣的函数或代码段
@@ -275,8 +283,9 @@ if __name__ == '__main__':
     
 
     # 将收集到的性能数据写入到一个字符串流中，以便于打印输出
-    s = io.StringIO()
-    sortby = 'cumulative'  # 可以根据需要修改排序方式
-    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    ps.print_stats()
-    print(s.getvalue())
+    # s = io.StringIO()
+    # sortby = 'cumulative'  # 可以根据需要修改排序方式
+    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    # ps.print_stats()
+    # print(s.getvalue())
+    # ps.print_callers(.5, 'function_name')

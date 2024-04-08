@@ -38,30 +38,7 @@ class ModifiedResnet(nn.Module):
         x = self.model(x)
         return x
 
-
-# def knn(x, k):
-#     """
-#     KNN's application
-#     :param x: (batch_size, num_point, in_f), a tensor on CUDA
-#     :param k: num of sampling points
-#     :return: (batch_size, num_point, k, in_f), a tensor on CUDA
-#     """
-#     batch_size, num_point, in_f = x.size()
-#     neigh = [NearestNeighbors(n_neighbors=k) for _ in range(batch_size)]
-#     # Create new_x on the same device as x, assuming x is on CUDA
-#     new_x = torch.zeros(batch_size, num_point, k, in_f, device=x.device)
-#     for b in range(batch_size):
-#         # Convert x[b] to CPU and numpy for sklearn compatibility
-#         x_cpu_np = x[b].cpu().detach().numpy()
-#         neigh[b].fit(x_cpu_np)
-#         z = torch.zeros(num_point, k, in_f, device=x.device)  # Create z on CUDA
-#         for i in range(num_point):
-#             _, index = neigh[b].kneighbors(x_cpu_np[i].reshape(1, -1))
-#             for t, j in enumerate(index[0]):
-#                 z[i][t] = x[b][j]
-#         new_x[b] = z
-#     return new_x
-
+# 消耗0.7s
 def knn(x, k):
     """
     knn 's application
@@ -180,15 +157,15 @@ class InputEmbedding(nn.Module):
         self.fc1 = nn.Linear(3, 64)
         self.bn = nn.BatchNorm1d(num_points)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(64, 64)
+        self.fc2 = nn.Linear(64, 128)
         self.SG1 = SampGroup(64, self.k1, self.sam_num1, 64)
         self.SG2 = SampGroup(64, self.k2, self.sam_num2, 128)
 
     def forward(self, x):
         x = self.relu(self.bn((self.fc1(x))))
         x = self.relu(self.bn((self.fc2(x))))
-        x = self.SG1(x)
-        x = self.SG2(x)
+        # x = self.SG1(x)
+        # x = self.SG2(x)
         return x
 
 class SelfAttention(nn.Module):
@@ -283,9 +260,9 @@ class PoseNetFeat(nn.Module):
         # x = F.relu(self.conv5(pointfeat_2))
         # x = F.relu(self.conv6(x))
 
-        x = self.offset_sa3(pointfeat_2)
-        x = F.relu(self.conv5(x))
-        x = self.offset_sa4(x)
+        # x = self.offset_sa3(pointfeat_2)
+        x = F.relu(self.conv5(pointfeat_2))
+        # x = self.offset_sa4(x)
         x = F.relu(self.conv6(x))
 
         ap_x = self.ap1(x)
@@ -299,7 +276,7 @@ class PoseNet(nn.Module):
         self.num_points = num_points
         self.cnn = ModifiedResnet()
         self.feat = PoseNetFeat(num_points, sam_num2)
-        self.ec = InputEmbedding(num_points, k1=20, k2=20, sam_num1=num_points, sam_num2=sam_num2)
+        self.ec = InputEmbedding(num_points, k1=5, k2=5, sam_num1=num_points, sam_num2=sam_num2)
         self.fc = nn.Linear(128 * 4, 1024)
         self.relu = nn.ReLU()
         self.mp = nn.MaxPool2d((sam_num2, 1))
@@ -398,9 +375,9 @@ class PoseRefineNetFeat(nn.Module):
 
         pointfeat_3 = torch.cat([pointfeat_1, pointfeat_2], dim=1)
 
-        x = self.offset_sa3(pointfeat_3)
-        x = F.relu(self.conv5(x))
-        x = self.offset_sa4(x)
+        # x = self.offset_sa3(pointfeat_3)
+        x = F.relu(self.conv5(pointfeat_3))
+        # x = self.offset_sa4(x)
         x = F.relu(self.conv6(x))
 
         ap_x = self.ap1(x)
