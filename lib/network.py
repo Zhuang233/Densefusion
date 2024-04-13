@@ -154,10 +154,10 @@ class InputEmbedding(nn.Module):
         self.k2 = k2
         self.sam_num1 = sam_num1
         self.sam_num2 = sam_num2
-        self.fc1 = nn.Linear(3, 64)
+        self.fc1 = nn.Linear(3, 32)
         self.bn = nn.BatchNorm1d(num_points)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(64, 128)
+        self.fc2 = nn.Linear(32, 64)
         self.SG1 = SampGroup(64, self.k1, self.sam_num1, 64)
         self.SG2 = SampGroup(64, self.k2, self.sam_num2, 128)
 
@@ -237,10 +237,10 @@ class PoseNetFeat(nn.Module):
         self.conv5 = torch.nn.Conv1d(256, 512, 1)
         self.conv6 = torch.nn.Conv1d(512, 1024, 1)
 
-        self.offset_sa1 = OffsetAttention(sam_num2, 128)
-        self.offset_sa2 = OffsetAttention(sam_num2, 128)
-        self.offset_sa3 = OffsetAttention(sam_num2, 256)
-        self.offset_sa4 = OffsetAttention(sam_num2, 512)
+        self.offset_sa1 = OffsetAttention(sam_num2, 64, dim_k=64, dim_v=64)
+        self.offset_sa2 = OffsetAttention(sam_num2, 64)
+        self.offset_sa3 = OffsetAttention(sam_num2, 192)
+        self.offset_sa4 = OffsetAttention(sam_num2, 192)
 
         self.ap1 = torch.nn.AvgPool1d(num_points)
         self.num_points = num_points
@@ -260,14 +260,14 @@ class PoseNetFeat(nn.Module):
         # x = F.relu(self.conv5(pointfeat_2))
         # x = F.relu(self.conv6(x))
 
-        # x = self.offset_sa3(pointfeat_2)
-        x = F.relu(self.conv5(pointfeat_2))
-        # x = self.offset_sa4(x)
-        x = F.relu(self.conv6(x))
+        x = self.offset_sa3(pointfeat_2)
+        # x = F.relu(self.conv5(pointfeat_2))
+        x = self.offset_sa4(x)
+        # x = F.relu(self.conv6(x))
 
         ap_x = self.ap1(x)
 
-        ap_x = ap_x.view(-1, 1024, 1).repeat(1, 1, self.num_points)
+        ap_x = ap_x.view(-1, 192, 1).repeat(1, 1, self.num_points)
         return torch.cat([pointfeat_1, pointfeat_2, ap_x], 1) #128 + 256 + 1024
 
 class PoseNet(nn.Module):
@@ -282,21 +282,21 @@ class PoseNet(nn.Module):
         self.mp = nn.MaxPool2d((sam_num2, 1))
         self.bm = nn.BatchNorm1d(sam_num2)
         
-        self.conv1_r = torch.nn.Conv1d(1472, 640, 1)
-        self.conv1_t = torch.nn.Conv1d(1472, 640, 1)
-        self.conv1_c = torch.nn.Conv1d(1472, 640, 1)
+        self.conv1_r = torch.nn.Conv1d(512, 256, 1)
+        self.conv1_t = torch.nn.Conv1d(512, 256, 1)
+        self.conv1_c = torch.nn.Conv1d(512, 256, 1)
 
-        self.conv2_r = torch.nn.Conv1d(640, 256, 1)
-        self.conv2_t = torch.nn.Conv1d(640, 256, 1)
-        self.conv2_c = torch.nn.Conv1d(640, 256, 1)
+        self.conv2_r = torch.nn.Conv1d(256, 128, 1)
+        self.conv2_t = torch.nn.Conv1d(256, 128, 1)
+        self.conv2_c = torch.nn.Conv1d(256, 128, 1)
 
-        self.conv3_r = torch.nn.Conv1d(256, 128, 1)
-        self.conv3_t = torch.nn.Conv1d(256, 128, 1)
-        self.conv3_c = torch.nn.Conv1d(256, 128, 1)
+        self.conv3_r = torch.nn.Conv1d(128, 64, 1)
+        self.conv3_t = torch.nn.Conv1d(128, 64, 1)
+        self.conv3_c = torch.nn.Conv1d(128, 64, 1)
 
-        self.conv4_r = torch.nn.Conv1d(128, num_obj*4, 1) #quaternion
-        self.conv4_t = torch.nn.Conv1d(128, num_obj*3, 1) #translation
-        self.conv4_c = torch.nn.Conv1d(128, num_obj*1, 1) #confidence
+        self.conv4_r = torch.nn.Conv1d(64, num_obj*4, 1) #quaternion
+        self.conv4_t = torch.nn.Conv1d(64, num_obj*3, 1) #translation
+        self.conv4_c = torch.nn.Conv1d(64, num_obj*1, 1) #confidence
 
         self.num_obj = num_obj
 

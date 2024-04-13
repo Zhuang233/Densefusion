@@ -32,7 +32,8 @@ import cProfile
 import pstats
 import io
 from torch.autograd import profiler
-
+import matplotlib.pyplot as plt
+import csv
 
 
 
@@ -66,13 +67,13 @@ def main():
         opt.num_points = 1000 #number of points on the input pointcloud
         opt.outf = 'trained_models/ycb' #folder to save trained models
         opt.log_dir = 'experiments/logs/ycb' #folder to save logs
-        opt.repeat_epoch = 1 #number of repeat times for one epoch training
+        opt.repeat_epoch = 20 #number of repeat times for one epoch training
     elif opt.dataset == 'linemod':
         opt.num_objects = 13
         opt.num_points = 500
         opt.outf = 'trained_models/linemod'
         opt.log_dir = 'experiments/logs/linemod'
-        opt.repeat_epoch = 1
+        opt.repeat_epoch = 20
     else:
         print('Unknown dataset')
         return
@@ -144,6 +145,16 @@ def main():
             os.remove(os.path.join(opt.log_dir, log))
     st_time = time.time()
 
+    # loss变化记录
+    train_loss_one_batch = []
+    train_loss_list = []
+    test_loss_list = []
+
+    # 创建CSV文件并写入表头
+    with open('loss_data.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Epoch', 'Train Loss', 'Test Loss'])
+
     for epoch in range(opt.start_epoch, opt.nepoch):
         logger = setup_logger('epoch%d' % epoch, os.path.join(opt.log_dir, 'epoch_%d_log.txt' % epoch))
         logger.info('Train time {0}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)) + ', ' + 'Training started'))
@@ -186,6 +197,8 @@ def main():
                     # with open("profile_result.txt", "w") as f:
                     #     f.write(prof_string)
                 train_dis_avg += dis.item()
+                if(rep == opt.repeat_epoch-1):
+                    train_loss_one_batch.append(train_dis_avg / opt.batch_size)
                 train_count += 1
                 # pr.disable()  # 停止收集性能数据
                 if train_count % opt.batch_size == 0:
@@ -200,9 +213,13 @@ def main():
                     else:
                         torch.save(estimator.state_dict(), '{0}/pose_model_current.pth'.format(opt.outf))
                 # return
+        
+        train_loss_list.append(np.mean(train_loss_one_batch))
+        train_loss_one_batch = []
         print('>>>>>>>>----------epoch {0} train finish---------<<<<<<<<'.format(epoch))
 
 
+        # 计算测试集loss
         logger = setup_logger('epoch%d_test' % epoch, os.path.join(opt.log_dir, 'epoch_%d_test_log.txt' % epoch))
         logger.info('Test time {0}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)) + ', ' + 'Testing started'))
         test_dis = 0.0
@@ -232,6 +249,8 @@ def main():
             test_count += 1
 
         test_dis = test_dis / test_count
+        test_loss_list.append(test_dis)
+
         logger.info('Test time {0} Epoch {1} TEST FINISH Avg dis: {2}'.format(time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - st_time)), epoch, test_dis))
         if test_dis <= best_test:
             best_test = test_dis
@@ -270,6 +289,24 @@ def main():
 
             criterion = Loss(opt.num_points_mesh, opt.sym_list)
             criterion_refine = Loss_refine(opt.num_points_mesh, opt.sym_list)
+
+
+        # 每个 epoch 结束后打开CSV文件并追加数据
+        with open('loss_data.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([epoch, train_loss_list[-1], test_loss_list[-1]])
+
+        # 绘制loss曲线，保存
+        plt.figure(figsize=(10, 5))
+        plt.plot(train_loss_list, label='Train Loss')
+        plt.plot(test_loss_list, label='Test Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training and Testing Loss per Epoch')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig('loss_curve_epoch_{}.png'.format(epoch))  # 保存图像文件
+        plt.close()  # 关闭图形，避免资源占用
 
 if __name__ == '__main__':
     # main()
