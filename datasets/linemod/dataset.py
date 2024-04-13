@@ -38,6 +38,9 @@ class PoseDataset(data.Dataset):
         self.noise_trans = noise_trans
         self.refine = refine
 
+        # 有效点云数
+        self.list_cloud_point_num = []
+
         item_count = 0
         for item in self.objlist:
             if self.mode == 'train':
@@ -206,6 +209,29 @@ class PoseDataset(data.Dataset):
             return self.num_pt_mesh_large
         else:
             return self.num_pt_mesh_small
+
+    def get_cloud_point_num_distribution(self):
+
+        for index in range(len(self.list_depth)):
+            depth = np.array(Image.open(self.list_depth[index]))
+            label = np.array(Image.open(self.list_label[index]))
+            mask_depth = ma.getmaskarray(ma.masked_not_equal(depth, 0))
+            mask_label = ma.getmaskarray(ma.masked_equal(label, np.array([255, 255, 255])))[:, :, 0]
+            mask = mask_label * mask_depth
+            obj = self.list_obj[index]
+            rank = self.list_rank[index]
+            meta = self.meta[obj][rank][0]
+            rmin, rmax, cmin, cmax = get_bbox(meta['obj_bb'])
+            choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
+            self.list_cloud_point_num.append(len(choose))
+        return self.list_cloud_point_num
+        
+
+            
+
+
+
+
 
 
 
