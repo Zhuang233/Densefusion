@@ -16,7 +16,7 @@ import numpy as np
 import pdb
 import torch.nn.functional as F
 from lib.pspnet import PSPNet
-from sklearn.neighbors import NearestNeighbors
+from lib.pct import CloudEmbedding
 
 psp_models = {
     'resnet18': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=512, deep_features_size=256, backend='resnet18'),
@@ -276,7 +276,7 @@ class PoseNet(nn.Module):
         self.num_points = num_points
         self.cnn = ModifiedResnet()
         self.feat = PoseNetFeat(num_points, sam_num2)
-        self.ec = InputEmbedding(num_points, k1=5, k2=5, sam_num1=num_points, sam_num2=sam_num2)
+        self.ec = CloudEmbedding()
         self.fc = nn.Linear(128 * 4, 1024)
         self.relu = nn.ReLU()
         self.mp = nn.MaxPool2d((sam_num2, 1))
@@ -300,7 +300,7 @@ class PoseNet(nn.Module):
 
         self.num_obj = num_obj
 
-    def forward(self, img, x, choose, obj):
+    def forward(self, img, x, choose, obj, cloud_full, choose_full):
         out_img = self.cnn(img)
         
         bs, di, _, _ = out_img.size()
@@ -308,11 +308,17 @@ class PoseNet(nn.Module):
         emb = out_img.view(bs, di, -1)
         choose = choose.repeat(1, di, 1)
         emb = torch.gather(emb, 2, choose).contiguous()
+#       to_change------------------------------------------
+#       任务：点云嵌入和RGB-cloud融合
+        # x = self.ec(x)
+        # x = x.transpose(2, 1).contiguous()
+        # ap_x = self.feat(x, emb)
+
         x = self.ec(x)
-        x = x.transpose(2, 1).contiguous()
+        ap_x = x
 
-        ap_x = self.feat(x, emb)
 
+#       to_change------------------------------------------
         rx = F.relu(self.conv1_r(ap_x))
         tx = F.relu(self.conv1_t(ap_x))
         cx = F.relu(self.conv1_c(ap_x))      

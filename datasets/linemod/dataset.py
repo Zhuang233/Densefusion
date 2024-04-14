@@ -136,6 +136,7 @@ class PoseDataset(data.Dataset):
         add_t = np.array([random.uniform(-self.noise_trans, self.noise_trans) for i in range(3)])
 
         choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
+        choose_full = choose
         if len(choose) == 0:
             cc = torch.LongTensor([0])
             return(cc, cc, cc, cc, cc, cc)
@@ -159,6 +160,20 @@ class PoseDataset(data.Dataset):
         pt1 = (xmap_masked - self.cam_cy) * pt2 / self.cam_fy
         cloud = np.concatenate((pt0, pt1, pt2), axis=1)
         cloud = cloud / 1000.0
+
+        # 完整点云
+        depth_masked_full = depth[rmin:rmax, cmin:cmax].flatten()[choose_full][:, np.newaxis].astype(np.float32)
+        xmap_masked = self.xmap[rmin:rmax, cmin:cmax].flatten()[choose_full][:, np.newaxis].astype(np.float32)
+        ymap_masked = self.ymap[rmin:rmax, cmin:cmax].flatten()[choose_full][:, np.newaxis].astype(np.float32)
+        choose_full = np.array([choose_full])
+
+        pt2_full = depth_masked_full / cam_scale
+        pt0_full = (ymap_masked - self.cam_cx) * pt2_full / self.cam_fx
+        pt1_full = (xmap_masked - self.cam_cy) * pt2_full / self.cam_fy
+        cloud_full = np.concatenate((pt0_full, pt1_full, pt2_full), axis=1)
+        cloud_full = cloud_full / 1000.0
+
+
 
         if self.add_noise:
             cloud = np.add(cloud, add_t)
@@ -196,7 +211,9 @@ class PoseDataset(data.Dataset):
                self.norm(torch.from_numpy(img_masked.astype(np.float32))), \
                torch.from_numpy(target.astype(np.float32)), \
                torch.from_numpy(model_points.astype(np.float32)), \
-               torch.LongTensor([self.objlist.index(obj)])
+               torch.LongTensor([self.objlist.index(obj)]), \
+               torch.from_numpy(cloud_full.astype(np.float32)), \
+               torch.LongTensor(choose_full.astype(np.int32)), \
 
     def __len__(self):
         return self.length
