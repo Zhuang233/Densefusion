@@ -42,12 +42,12 @@ def index_points(points, idx):
         new_points:, indexed points data, [B, S, C]
     """
     device = points.device
-    B = points.shape[0]
-    view_shape = list(idx.shape)
-    view_shape[1:] = [1] * (len(view_shape) - 1)
+    B = points.shape[0] # 获取批次大小
+    view_shape = list(idx.shape) 
+    view_shape[1:] = [1] * (len(view_shape) - 1) # [[1,1,1...采样点数(S)个],...B个]
     repeat_shape = list(idx.shape)
-    repeat_shape[0] = 1
-    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    repeat_shape[0] = 1 # [1, S]
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape) # [0~B]
     new_points = points[batch_indices, idx, :]
     return new_points
 
@@ -104,7 +104,7 @@ def sample_and_group(npoint, radius, nsample, xyz, points, fps_idx):
 
     # 采用最远点采样npoint个点，fps_idx[B,index]
     # fps_idx = pointnet2_utils.furthest_point_sample(xyz, npoint).long() # [B, npoint]
-
+    
     new_xyz = index_points(xyz, fps_idx) 
     new_points = index_points(points, fps_idx)
     # new_xyz = xyz[:]

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from util_pct import sample_and_group 
+from lib.util_pct import sample_and_group 
 
 class Local_op(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -75,6 +75,7 @@ class Local_op(nn.Module):
 
 class CloudEmbedding(nn.Module):
     def __init__(self):
+        super(CloudEmbedding, self ).__init__()
         self.conv1 = nn.Conv1d(3, 64, kernel_size=1, bias=False)
         self.conv2 = nn.Conv1d(64, 64, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm1d(64)
@@ -83,18 +84,20 @@ class CloudEmbedding(nn.Module):
         self.gather_local_1 = Local_op(in_channels=256, out_channels=256)
 
     def forward(self, x, fps_idx):
-        xyz = x.permute(0, 2, 1)
+        xyz = x
+        x=x.permute(0, 2, 1)
         # B, D, N
         x = F.relu(self.bn1(self.conv1(x)))
         # B, D, N
         x = F.relu(self.bn2(self.conv2(x)))
         x = x.permute(0, 2, 1)
-        new_xyz, new_feature = sample_and_group(npoint=512, radius=0.15, nsample=32, xyz=xyz, points=x, fps_idx=fps_idx)
+        new_xyz, new_feature = sample_and_group(npoint=500, radius=0.15, nsample=16, xyz=xyz, points=x, fps_idx=fps_idx)
         feature_0 = self.gather_local_0(new_feature)
         feature = feature_0.permute(0, 2, 1)
-        new_xyz, new_feature = sample_and_group(npoint=256, radius=0.2, nsample=32, xyz=new_xyz, points=feature, fps_idx=fps_idx) 
-        feature_1 = self.gather_local_1(new_feature)
-        return new_xyz, feature_1
+        # new_xyz, new_feature = sample_and_group(npoint=256, radius=0.2, nsample=16, xyz=new_xyz, points=feature, fps_idx=fps_idx) 
+        # feature_1 = self.gather_local_1(new_feature)
+        # return new_xyz, feature_1
+        return feature, new_xyz
 
 
 
@@ -129,6 +132,53 @@ class Point_Transformer_Last(nn.Module):
         x = torch.cat((x1, x2, x3, x4), dim=1)
 
         return x
+
+class RGB_Cloud_feat(nn.Module):
+    def __init__(self,num_points):
+        super(RGB_Cloud_feat, self).__init__()
+        self.conv1 = nn.Conv1d(128, 128, kernel_size=1, bias=False)
+        self.pos_xyz = nn.Conv1d(3, 128, 1)
+        self.pos_xyz2 = nn.Conv1d(128, 256, 1)
+        self.bn1 = nn.BatchNorm1d(128)
+
+        self.sa1 = SA_Layer(128)
+        self.sa2 = SA_Layer(128)
+        self.sa3 = SA_Layer(256)
+        self.sa4 = SA_Layer(256)
+
+        self.e_conv1 = torch.nn.Conv1d(32, 64, 1)
+        self.e_conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.ap1 = torch.nn.AvgPool1d(num_points)
+
+    def forward(self, feature_cloud, feature_RGB, xyz):
+        # feature_cloud [B,N,128] x12
+        # feature_RGB [B,N,32]
+        # xyz[B,N,3]
+
+        # b, 3, npoint, nsample  
+        # conv2d 3 -> 128 channels 1, 1
+        # b * npoint, c, nsample 
+        # permute reshape
+        B, _, N = feature_cloud.size()
+        xyz = xyz.permute(0, 2, 1)
+        xyz = self.pos_xyz(xyz) # 128
+        # B, D, N
+        x = F.relu(self.bn1(self.conv1(feature_cloud)))
+        x1 = self.sa1(x, xyz)
+        feature_RGB = F.relu(self.e_conv1(feature_RGB))
+        pointfeat_1 = torch.cat((x1, feature_RGB), dim=1) # 128 + 64 = 192
+
+        x2 = self.sa2(x1, xyz)
+        feature_RGB = F.relu(self.e_conv2(feature_RGB))
+        pointfeat_2 = torch.cat((x2, feature_RGB), dim=1) # 128 + 128 = 256
+
+        xyz = self.pos_xyz2(xyz)
+        x3 = self.sa3(pointfeat_2, xyz) # 256
+        x4 = self.sa4(x3, xyz) # 256
+        x4 = self.ap1(x4)
+        x4 = x4.view(-1, 256, 1).repeat(1, 1, N)
+        return torch.cat([pointfeat_1, pointfeat_2, x4], 1) #128 + 64 + 128 + 128 + 256
+        
 
 class SA_Layer(nn.Module):
     def __init__(self, channels):

@@ -24,7 +24,7 @@ import cv2
 class PoseDataset(data.Dataset):
     def __init__(self, mode, num, add_noise, root, noise_trans, refine):
         self.objlist = [1, 2, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]
-        # self.objlist = [1]
+        # self.objlist = [5]
         self.mode = mode
 
         self.list_rgb = []
@@ -145,10 +145,18 @@ class PoseDataset(data.Dataset):
             c_mask = np.zeros(len(choose), dtype=int)
             c_mask[:self.num] = 1
             np.random.shuffle(c_mask)
-            choose = choose[c_mask.nonzero()]
+            c_mask = c_mask.nonzero()
+            choose = choose[c_mask]
         else:
-            choose = np.pad(choose, (0, self.num - len(choose)), 'wrap')
+            # choose = np.pad(choose, (0, self.num - len(choose)), 'wrap')
+            # 计算需要的重复次数以确保索引数组长度至少为self.num
+            repeats = (self.num + len(choose) - 1) // len(choose)
+            # 生成重复的索引数组并截取前self.num个元素
+            c_mask = np.tile(np.arange(len(choose)), repeats)[:self.num]
+            # 选择元素
+            choose = choose[c_mask]
         
+        c_mask = np.array(c_mask)[0]
         depth_masked = depth[rmin:rmax, cmin:cmax].flatten()[choose][:, np.newaxis].astype(np.float32)
         xmap_masked = self.xmap[rmin:rmax, cmin:cmax].flatten()[choose][:, np.newaxis].astype(np.float32)
         ymap_masked = self.ymap[rmin:rmax, cmin:cmax].flatten()[choose][:, np.newaxis].astype(np.float32)
@@ -214,6 +222,8 @@ class PoseDataset(data.Dataset):
                torch.LongTensor([self.objlist.index(obj)]), \
                torch.from_numpy(cloud_full.astype(np.float32)), \
                torch.LongTensor(choose_full.astype(np.int32)), \
+               self.list_rgb[index], \
+               torch.LongTensor(c_mask.astype(np.int32))
 
     def __len__(self):
         return self.length

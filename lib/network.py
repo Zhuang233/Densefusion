@@ -17,6 +17,7 @@ import pdb
 import torch.nn.functional as F
 from lib.pspnet import PSPNet
 from lib.pct import CloudEmbedding
+from lib.pct import RGB_Cloud_feat
 
 psp_models = {
     'resnet18': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=512, deep_features_size=256, backend='resnet18'),
@@ -275,20 +276,20 @@ class PoseNet(nn.Module):
         super(PoseNet, self).__init__()
         self.num_points = num_points
         self.cnn = ModifiedResnet()
-        self.feat = PoseNetFeat(num_points, sam_num2)
+        self.feat = RGB_Cloud_feat(num_points)
         self.ec = CloudEmbedding()
         self.fc = nn.Linear(128 * 4, 1024)
         self.relu = nn.ReLU()
         self.mp = nn.MaxPool2d((sam_num2, 1))
         self.bm = nn.BatchNorm1d(sam_num2)
         
-        self.conv1_r = torch.nn.Conv1d(512, 256, 1)
-        self.conv1_t = torch.nn.Conv1d(512, 256, 1)
-        self.conv1_c = torch.nn.Conv1d(512, 256, 1)
+        self.conv1_r = torch.nn.Conv1d(704, 352, 1)
+        self.conv1_t = torch.nn.Conv1d(704, 352, 1)
+        self.conv1_c = torch.nn.Conv1d(704, 352, 1)
 
-        self.conv2_r = torch.nn.Conv1d(256, 128, 1)
-        self.conv2_t = torch.nn.Conv1d(256, 128, 1)
-        self.conv2_c = torch.nn.Conv1d(256, 128, 1)
+        self.conv2_r = torch.nn.Conv1d(352, 128, 1)
+        self.conv2_t = torch.nn.Conv1d(352, 128, 1)
+        self.conv2_c = torch.nn.Conv1d(352, 128, 1)
 
         self.conv3_r = torch.nn.Conv1d(128, 64, 1)
         self.conv3_t = torch.nn.Conv1d(128, 64, 1)
@@ -300,22 +301,23 @@ class PoseNet(nn.Module):
 
         self.num_obj = num_obj
 
-    def forward(self, img, x, choose, obj, cloud_full, choose_full):
+    def forward(self, img, x, choose, obj, cloud_full, choose_full, choose_choose):
         out_img = self.cnn(img)
         
         bs, di, _, _ = out_img.size()
 
         emb = out_img.view(bs, di, -1)
-        choose = choose.repeat(1, di, 1)
-        emb = torch.gather(emb, 2, choose).contiguous()
+        choose_rep = choose.repeat(1, di, 1)
+        emb = torch.gather(emb, 2, choose_rep).contiguous()
 #       to_change------------------------------------------
 #       任务：点云嵌入和RGB-cloud融合
         # x = self.ec(x)
         # x = x.transpose(2, 1).contiguous()
         # ap_x = self.feat(x, emb)
 
-        x = self.ec(x)
-        ap_x = x
+        feature_cloud, xyz= self.ec(cloud_full, choose_choose) # [B,N,128]
+        feature_cloud = feature_cloud.permute(0, 2, 1)
+        ap_x = self.feat(feature_cloud, emb, xyz)
 
 
 #       to_change------------------------------------------

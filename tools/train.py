@@ -170,16 +170,17 @@ def main():
         for rep in range(opt.repeat_epoch):
             for i, data in enumerate(dataloader, 0):
                 # 深度图点云， 深度图点云索引，切割下的RGB，第一帧点云，类别
-                points, choose, img, target, model_points, idx , cloud_full, choose_full= data
-                points, choose, img, target, model_points, idx , cloud_full, choose_full= Variable(points).cuda(), \
+                points, choose, img, target, model_points, idx , cloud_full, choose_full, path_rgb, choose_choose= data
+                points, choose, img, target, model_points, idx , cloud_full, choose_full, choose_choose= Variable(points).cuda(), \
                                                                              Variable(choose).cuda(), \
                                                                              Variable(img).cuda(), \
                                                                              Variable(target).cuda(), \
                                                                              Variable(model_points).cuda(), \
                                                                              Variable(idx).cuda(),\
                                                                              Variable(cloud_full).cuda(), \
-                                                                             Variable(choose_full).cuda()
-                pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx, cloud_full, choose_full)
+                                                                             Variable(choose_full).cuda(), \
+                                                                             Variable(choose_choose).cuda()
+                pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx, cloud_full, choose_full, choose_choose)
                 loss, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
                 
                 if opt.refine_start:
@@ -229,14 +230,17 @@ def main():
         refiner.eval()
 
         for j, data in enumerate(testdataloader, 0):
-            points, choose, img, target, model_points, idx = data
-            points, choose, img, target, model_points, idx = Variable(points).cuda(), \
+            points, choose, img, target, model_points, idx , cloud_full, choose_full, path_rgb, choose_choose= data
+            points, choose, img, target, model_points, idx , cloud_full, choose_full, choose_choose = Variable(points).cuda(), \
                                                              Variable(choose).cuda(), \
                                                              Variable(img).cuda(), \
                                                              Variable(target).cuda(), \
                                                              Variable(model_points).cuda(), \
-                                                             Variable(idx).cuda()
-            pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx)
+                                                             Variable(idx).cuda(),\
+                                                            Variable(cloud_full).cuda(), \
+                                                            Variable(choose_full).cuda(), \
+                                                            Variable(choose_choose).cuda()
+            pred_r, pred_t, pred_c, emb = estimator(img, points, choose, idx, cloud_full, choose_full, choose_choose)
             _, dis, new_points, new_target = criterion(pred_r, pred_t, pred_c, target, model_points, idx, points, opt.w, opt.refine_start)
 
             if opt.refine_start:
