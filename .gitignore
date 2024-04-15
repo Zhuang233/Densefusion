@@ -3,3 +3,4 @@ datasets/linemod/__pycache__/*
 second
 nohup.out
 lib/__pycache__/
+trained_models/
