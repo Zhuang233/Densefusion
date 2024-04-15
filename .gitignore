@@ -2,3 +2,4 @@ experiments/logs/*
 datasets/linemod/__pycache__/*
 second
 nohup.out
+lib/__pycache__/
