@@ -283,13 +283,13 @@ class PoseNet(nn.Module):
         self.mp = nn.MaxPool2d((sam_num2, 1))
         self.bm = nn.BatchNorm1d(sam_num2)
         
-        self.conv1_r = torch.nn.Conv1d(704, 352, 1)
-        self.conv1_t = torch.nn.Conv1d(704, 352, 1)
-        self.conv1_c = torch.nn.Conv1d(704, 352, 1)
+        self.conv1_r = torch.nn.Conv1d(320, 192, 1)
+        self.conv1_t = torch.nn.Conv1d(320, 192, 1)
+        self.conv1_c = torch.nn.Conv1d(320, 192, 1)
 
-        self.conv2_r = torch.nn.Conv1d(352, 128, 1)
-        self.conv2_t = torch.nn.Conv1d(352, 128, 1)
-        self.conv2_c = torch.nn.Conv1d(352, 128, 1)
+        self.conv2_r = torch.nn.Conv1d(192, 128, 1)
+        self.conv2_t = torch.nn.Conv1d(192, 128, 1)
+        self.conv2_c = torch.nn.Conv1d(192, 128, 1)
 
         self.conv3_r = torch.nn.Conv1d(128, 64, 1)
         self.conv3_t = torch.nn.Conv1d(128, 64, 1)
@@ -315,7 +315,7 @@ class PoseNet(nn.Module):
         # x = x.transpose(2, 1).contiguous()
         # ap_x = self.feat(x, emb)
 
-        feature_cloud, xyz= self.ec(cloud_full, choose_choose) # [B,N,128]
+        feature_cloud, xyz= self.ec(cloud_full, choose_choose) # [B,N,32]
         feature_cloud = feature_cloud.permute(0, 2, 1)
         ap_x = self.feat(feature_cloud, emb, xyz)
 

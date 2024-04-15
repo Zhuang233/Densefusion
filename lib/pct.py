@@ -76,12 +76,12 @@ class Local_op(nn.Module):
 class CloudEmbedding(nn.Module):
     def __init__(self):
         super(CloudEmbedding, self ).__init__()
-        self.conv1 = nn.Conv1d(3, 64, kernel_size=1, bias=False)
-        self.conv2 = nn.Conv1d(64, 64, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm1d(64)
-        self.bn2 = nn.BatchNorm1d(64)
-        self.gather_local_0 = Local_op(in_channels=128, out_channels=128)
-        self.gather_local_1 = Local_op(in_channels=256, out_channels=256)
+        self.conv1 = nn.Conv1d(3, 16, kernel_size=1, bias=False)
+        self.conv2 = nn.Conv1d(16, 16, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm1d(16)
+        self.bn2 = nn.BatchNorm1d(16)
+        self.gather_local_0 = Local_op(in_channels=32, out_channels=32)
+        # self.gather_local_1 = Local_op(in_channels=256, out_channels=256)
 
     def forward(self, x, fps_idx):
         xyz = x
@@ -136,22 +136,22 @@ class Point_Transformer_Last(nn.Module):
 class RGB_Cloud_feat(nn.Module):
     def __init__(self,num_points):
         super(RGB_Cloud_feat, self).__init__()
-        self.conv1 = nn.Conv1d(128, 128, kernel_size=1, bias=False)
-        self.pos_xyz = nn.Conv1d(3, 128, 1)
-        self.pos_xyz2 = nn.Conv1d(128, 256, 1)
-        self.bn1 = nn.BatchNorm1d(128)
+        self.conv1 = nn.Conv1d(32, 32, kernel_size=1, bias=False)
+        self.pos_xyz = nn.Conv1d(3, 32, 1)
+        self.pos_xyz2 = nn.Conv1d(32, 64, 1)
+        self.bn1 = nn.BatchNorm1d(32)
 
-        self.sa1 = SA_Layer(128)
-        self.sa2 = SA_Layer(128)
-        self.sa3 = SA_Layer(256)
-        self.sa4 = SA_Layer(256)
+        self.sa1 = SA_Layer(32)
+        self.sa2 = SA_Layer(32)
+        self.sa3 = SA_Layer(64)
+        self.sa4 = SA_Layer(64)
 
         self.e_conv1 = torch.nn.Conv1d(32, 64, 1)
         self.e_conv2 = torch.nn.Conv1d(64, 128, 1)
         self.ap1 = torch.nn.AvgPool1d(num_points)
 
     def forward(self, feature_cloud, feature_RGB, xyz):
-        # feature_cloud [B,N,128] x12
+        # feature_cloud [B,N,32]
         # feature_RGB [B,N,32]
         # xyz[B,N,3]
 
@@ -161,23 +161,23 @@ class RGB_Cloud_feat(nn.Module):
         # permute reshape
         B, _, N = feature_cloud.size()
         xyz = xyz.permute(0, 2, 1)
-        xyz = self.pos_xyz(xyz) # 128
+        xyz = self.pos_xyz(xyz) # 32
         # B, D, N
         x = F.relu(self.bn1(self.conv1(feature_cloud)))
         x1 = self.sa1(x, xyz)
         feature_RGB = F.relu(self.e_conv1(feature_RGB))
-        pointfeat_1 = torch.cat((x1, feature_RGB), dim=1) # 128 + 64 = 192
+        pointfeat_1 = torch.cat((x1, feature_RGB), dim=1) # 32 + 64 = 96
 
         x2 = self.sa2(x1, xyz)
         feature_RGB = F.relu(self.e_conv2(feature_RGB))
-        pointfeat_2 = torch.cat((x2, feature_RGB), dim=1) # 128 + 128 = 256
+        pointfeat_2 = torch.cat((x2, feature_RGB), dim=1) # 32 + 128 = 160
 
         xyz = self.pos_xyz2(xyz)
-        x3 = self.sa3(pointfeat_2, xyz) # 256
-        x4 = self.sa4(x3, xyz) # 256
+        x3 = self.sa3(pointfeat_2, xyz) # 64
+        x4 = self.sa4(x3, xyz) # 64
         x4 = self.ap1(x4)
-        x4 = x4.view(-1, 256, 1).repeat(1, 1, N)
-        return torch.cat([pointfeat_1, pointfeat_2, x4], 1) #128 + 64 + 128 + 128 + 256
+        x4 = x4.view(-1, 64, 1).repeat(1, 1, N)
+        return torch.cat([pointfeat_1, pointfeat_2, x4], 1) #96 +160 +64 =320 
         
 
 class SA_Layer(nn.Module):
