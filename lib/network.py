@@ -283,21 +283,21 @@ class PoseNet(nn.Module):
         self.mp = nn.MaxPool2d((sam_num2, 1))
         self.bm = nn.BatchNorm1d(sam_num2)
         
-        self.conv1_r = torch.nn.Conv1d(416, 288, 1)
-        self.conv1_t = torch.nn.Conv1d(416, 288, 1)
-        self.conv1_c = torch.nn.Conv1d(416, 288, 1)
+        self.conv1_r = torch.nn.Conv1d(1088, 512, 1)
+        self.conv1_t = torch.nn.Conv1d(1088, 512, 1)
+        self.conv1_c = torch.nn.Conv1d(1088, 512, 1)
 
-        self.conv2_r = torch.nn.Conv1d(288, 128, 1)
-        self.conv2_t = torch.nn.Conv1d(288, 128, 1)
-        self.conv2_c = torch.nn.Conv1d(288, 128, 1)
+        self.conv2_r = torch.nn.Conv1d(512, 256, 1)
+        self.conv2_t = torch.nn.Conv1d(512, 256, 1)
+        self.conv2_c = torch.nn.Conv1d(512, 256, 1)
 
-        self.conv3_r = torch.nn.Conv1d(128, 64, 1)
-        self.conv3_t = torch.nn.Conv1d(128, 64, 1)
-        self.conv3_c = torch.nn.Conv1d(128, 64, 1)
+        self.conv3_r = torch.nn.Conv1d(256, 128, 1)
+        self.conv3_t = torch.nn.Conv1d(256, 128, 1)
+        self.conv3_c = torch.nn.Conv1d(256, 128, 1)
 
-        self.conv4_r = torch.nn.Conv1d(64, num_obj*4, 1) #quaternion
-        self.conv4_t = torch.nn.Conv1d(64, num_obj*3, 1) #translation
-        self.conv4_c = torch.nn.Conv1d(64, num_obj*1, 1) #confidence
+        self.conv4_r = torch.nn.Conv1d(128, num_obj*4, 1) #quaternion
+        self.conv4_t = torch.nn.Conv1d(128, num_obj*3, 1) #translation
+        self.conv4_c = torch.nn.Conv1d(128, num_obj*1, 1) #confidence
 
         self.num_obj = num_obj
 
