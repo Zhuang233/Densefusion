@@ -136,6 +136,7 @@ class Point_Transformer_Last(nn.Module):
 class RGB_Cloud_feat(nn.Module):
     def __init__(self,num_points):
         super(RGB_Cloud_feat, self).__init__()
+        self.num_points = num_points
         self.conv1 = nn.Conv1d(128, 128, kernel_size=1, bias=False)
         self.pos_xyz = nn.Conv1d(3, 128, 1)
         self.pos_xyz2 = nn.Conv1d(128, 256, 1)
@@ -145,6 +146,8 @@ class RGB_Cloud_feat(nn.Module):
         self.sa2 = SA_Layer(128)
         self.sa3 = SA_Layer(256)
         self.sa4 = SA_Layer(256)
+        self.conv5 = torch.nn.Conv1d(256, 512, 1)
+        self.conv6 = torch.nn.Conv1d(512, 1024, 1)
 
         self.e_conv1 = torch.nn.Conv1d(32, 64, 1)
         self.e_conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -172,12 +175,18 @@ class RGB_Cloud_feat(nn.Module):
         feature_RGB = F.relu(self.e_conv2(feature_RGB))
         pointfeat_2 = torch.cat((x2, feature_RGB), dim=1) # 128 + 128 = 256
 
-        xyz = self.pos_xyz2(xyz)
-        x3 = self.sa3(pointfeat_2, xyz) # 256
-        x4 = self.sa4(x3, xyz) # 256
-        x4 = self.ap1(x4)
-        x4 = x4.view(-1, 256, 1).repeat(1, 1, N)
-        return torch.cat([pointfeat_1, pointfeat_2, x4], 1) #128 + 64 + 128 + 128 + 256
+        # xyz = self.pos_xyz2(xyz)
+        # x3 = self.sa3(pointfeat_2, xyz) # 256
+        # x4 = self.sa4(x3, xyz) # 256
+        # x4 = self.ap1(x4)
+        # x4 = x4.view(-1, 256, 1).repeat(1, 1, N)
+        # return torch.cat([pointfeat_1, pointfeat_2, x4], 1) #128 + 64 + 128 + 128 + 256
+        x = F.relu(self.conv5(pointfeat_2))
+        x = F.relu(self.conv6(x))
+        ap_x = self.ap1(x)
+
+        ap_x = ap_x.view(-1, 1024, 1).repeat(1, 1, self.num_points)
+        return torch.cat([pointfeat_1, pointfeat_2, ap_x], 1) #192 + 256 + 1024
         
 
 class SA_Layer(nn.Module):
